@@ -1,0 +1,25 @@
+Functions:
+	*Naming
+		- snake_case
+
+Variables:
+	*Naming
+		- camelCase
+
+Structs:
+	*Naming
+		- snake_case_t	
+		- Note: Should end with _t
+
+Enums:
+	*Naming
+		- CAPITAL_SNAKE_CASE
+
+
+Comments:
+	*Block comments should start with descriptor and name of comment author (ie. NOTE(matt): )
+	*Valid descriptors
+		- TODO: Used to denote comment pertaining to something that needs to be done in the future
+		- NOTE: Used to denote comment as containing additional information about code/implementation
+		- WARNING: Used to denote comment with elevated importance, something that should be read context
+		- IMPORTANT: Used to denote comment with great importance, something that must be read for context
