@@ -41,7 +41,7 @@ typedef struct {
 /*
 static volatile UART *uart0 = (UART *)0x0000000009000000;
 */
-static volatile UART *uart0 = (UART *)0xFFFF000049000000;
+static volatile UART *uart0 = (UART *)0xFFFFFFE009000000;
 
 
 void putchar( char c );

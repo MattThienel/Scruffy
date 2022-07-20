@@ -82,7 +82,7 @@ void mmu_init( void ) {
     paging[1] = (uint64_t)( (1LL<<30) | PT_BLOCK | PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RW );
 
     paging[1*512+0] = (uint64_t)(PT_BLOCK | PT_AF | PT_NX | PT_KERNEL | PT_OSH | PT_DEV | PT_RW );
-    paging[1*512+1] = (uint64_t)((1LL<<30) | PT_BLOCK | PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RW );
+    paging[1*512+65] = (uint64_t)((1LL<<30) | PT_BLOCK | PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RW );
 
 
     // check for 4k granule and at least 36 bits physical address bus
