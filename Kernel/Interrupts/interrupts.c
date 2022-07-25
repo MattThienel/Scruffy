@@ -1,5 +1,5 @@
-#include "interrupts.h"
-#include "uart.h"
+#include "Interrupts/interrupts.h"
+#include "kernio.h"
 #include "types.h"
 #include "kutils.h"
 
@@ -34,11 +34,11 @@ const char *invalidMessage[] = {
 };
 
 void show_invalid_entry_message( size_t type, size_t esr, size_t address ) {
-	pk_printf( "%s, ESR: 0x%x, address: 0x%x\n", invalidMessage[type], esr, address );
+	kprintf( "%s, ESR: 0x%x, address: 0x%x\n", invalidMessage[type], esr, address );
 }
 
 void handle_irq( void ) {
-	pk_print( "IRQ\n" );
+	print( "IRQ\n" );
 	/*unsigned int irq = get32(IRQ_PENDING_1);
 	switch (irq) {
 		case (SYSTEM_TIMER_IRQ_1):
@@ -56,12 +56,10 @@ void handle_sync( void ) {
 	asm volatile ( "mrs %0, elr_el1" \
 					: "=r" (address) );
 
-    pk_print("SYNC INT\n");
-    for( ;; ) {}
-	pk_printf( "SYNC INT: 0x%lx @ 0x%lx\n", exceptionReg, address );
+	kprintf( "Kernel SYNC INT: 0x%lx @ 0x%lx\n", exceptionReg, address-4 );
 	size_t EC = (exceptionReg & 0xFC000000) >> 26;
 	if( EC == 0b100101 ) {
-		pk_printf( "HALTING PROCESS\n" );
+		kprintf( "HALTING PROCESS\n" );
 		for(;;);
 	}
     for( ;; );

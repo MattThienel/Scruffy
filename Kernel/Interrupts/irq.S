@@ -1,4 +1,4 @@
-.section ".text"
+.section ".text.irq"
 
 .global _irq_vector_init
 _irq_vector_init:

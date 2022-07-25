@@ -14,33 +14,51 @@ LINKER_FILE = linker.ld
 BUILD_DIR = build
 
 ASSEMBLY_FILES = $(wildcard ./*.S)
-ASSEMBLY_OBJS = $(addprefix $(BUILD_DIR)/obj/,$(notdir $(ASSEMBLY_FILES:.S=.o)))
+ASSEMBLY_FILES += $(wildcard Interrupts/*.S)
+ASSEMBLY_OBJS = $(addprefix $(BUILD_DIR)/obj/kernel/,$(notdir $(ASSEMBLY_FILES:.S=.o)))
 
 C_FILES = $(wildcard ./*.c)
-C_FILES += $(wildcard mm/*.c)
-C_OBJS = $(addprefix $(BUILD_DIR)/obj/,$(notdir $(C_FILES:.c=.o)))
+C_FILES += $(wildcard Memory/*.c)
+C_FILES += $(wildcard Interrupts/*.c)
+C_FILES += $(wildcard Graphics/*.c)
+C_FILES += $(wildcard FileSystem/*.c)
+C_OBJS = $(addprefix $(BUILD_DIR)/obj/kernel/,$(notdir $(C_FILES:.c=.o)))
 
 INCLUDES = -I./
 
-CFLAGS = $(INCLUDES) -ffreestanding -g -O2 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -mgeneral-regs-only 
+CFLAGS = $(INCLUDES) -ffreestanding -g -ggdb -Og -O0 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -mgeneral-regs-only -Wno-array-bounds
+
 LDFLAGS = -ffreestanding -nostdlib -lgcc
 
-all: clean prekernel bin
+all: clean bin
 
-$(BUILD_DIR)/obj/%.o: ./%.S obj
+$(BUILD_DIR)/obj/kernel/%.o: ./%.S obj
 		$(CC) $(INCLUDES) -g -c $< -o $@
 
-$(BUILD_DIR)/obj/%.o: ./%.c obj
+$(BUILD_DIR)/obj/kernel/%.o: Interrupts/%.S obj
+		$(CC) $(INCLUDES) -g -c $< -o $@
+
+$(BUILD_DIR)/obj/kernel/%.o: ./%.c obj
 		$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/obj/%.o: mm/%.c obj
+$(BUILD_DIR)/obj/kernel/%.o: Memory/%.c obj
 		$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/$(ELF): $(ASSEMBLY_OBJS) $(C_OBJS) build
-		$(CC) -T $(LINKER_FILE) -o $@ build/obj/*.o $(ARM_COMPILER_OPTIONS) $(LDFLAGS) 
+$(BUILD_DIR)/obj/kernel/%.o: Interrupts/%.c obj
+		$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/obj/kernel/%.o: Graphics/%.c obj
+		$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/obj/kernel/%.o: FileSystem/%.c obj
+		$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/$(ELF): | prekernel $(ASSEMBLY_OBJS) $(C_OBJS) build
+		$(CC) -T $(LINKER_FILE) -o $@ build/obj/kernel/*.o build/obj/prekernel/*.o $(ARM_COMPILER_OPTIONS) $(LDFLAGS) 
 
 obj:
 		@mkdir -p $(BUILD_DIR)/obj
+		@mkdir -p $(BUILD_DIR)/obj/kernel/
 	
 build:
 		@mkdir -p $(BUILD_DIR)
@@ -49,10 +67,11 @@ clean:
 		rm -rf $(BUILD_DIR)
 
 prekernel: obj
-		$(MAKE) -C ./prekernel/
-		cp ./prekernel/build/obj/*.o build/obj/
+		$(MAKE) -C ./Prekernel/
+		mkdir build/obj/prekernel/
+		cp ./Prekernel/build/obj/*.o build/obj/prekernel/
 
-bin: | prekernel $(BUILD_DIR)/$(ELF)
+bin: $(BUILD_DIR)/$(ELF)
 		$(OBJ_COPY) -O binary $(BUILD_DIR)/$(ELF) $(BUILD_DIR)/$(BIN)
 
 dump:

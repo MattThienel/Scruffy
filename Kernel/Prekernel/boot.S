@@ -2,6 +2,12 @@
 
 .global _start
 _start:
+    // Save kernel arguments
+    mov     x19, x0
+    mov     x20, x1
+    mov     x21, x2
+    mov     x22, x3
+
     // read cpu id, stop slave cores
     mrs     x1, mpidr_el1
     and     x1, x1, #3
@@ -13,7 +19,7 @@ _start:
 
 2:  // cpu id == 0
 
-    ldr     x5, =__stack_top
+    ldr     x5, =__boot_stack_top
     
     // get current exception level
     mrs     x0, CurrentEL
@@ -64,14 +70,19 @@ _start:
 4:  mov     sp, x5
     
     // Clear BSS
-    ldr     x5, =__bss_start
-    ldr     x6, =__bss_size
+    ldr     x5, =__boot_bss_start
+    ldr     x6, =__boot_bss_size
     cbz     x6, 2f
 1:  str     xzr, [x5], #8
     subs    x6, x6, #8
     bgt     1b 
 2:
-    bl      _irq_vector_init
+    bl      _pk_irq_vector_init
 
+    // Reload kernel arguments
+    mov     x0, x19
+    mov     x1, x20
+    mov     x2, x21
+    mov     x3, x22
     bl      init
     b       .

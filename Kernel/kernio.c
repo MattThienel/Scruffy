@@ -3,7 +3,6 @@
 #include <stdarg.h>
 
 #include "types.h"
-#include "mm/mm.h"
 #include "kutils.h"
 
 void putchar( char c ) {

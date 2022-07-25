@@ -1,11 +1,16 @@
 /*
- *
- */
 
-#ifndef _PREKERNEL_MMU_H
-#define _PREKERNEL_MMU_H
+*/
 
+#ifndef _MMU_H
+#define _MMU_H
+
+#include <assert.h>
 #include "types.h"
+
+
+#define VA_START    0xFFFFFFE000000000
+#define PA_START    0x0000000040080000
 
 #define PAGESIZE    4096
 
@@ -71,9 +76,18 @@ typedef union {
     uint64_t value;
 } page_table_descriptor_t;
 
-//extern volatile uint64_t __pg_tbl_start;
-extern volatile uint64_t __pg_tbl_start;
+extern uint64_t __text_start, __text_end;
+extern uint64_t __text_start_phys, __text_end_phys;
+extern uint64_t __rodata_start, __rodata_end;
+extern uint64_t __rodata_start_phys, __rodata_end_phys;
+extern uint64_t __data_start, __data_end;
+extern uint64_t __data_start_phys, __data_end_phys;
+extern uint64_t __bss_start, __bss_end;
+extern uint64_t __bss_start_phys, __bss_end_phys;
+extern uint64_t __start, __end;
+extern uint64_t __pg_tbl_start, __pg_tbl_end;
 
 void mmu_init( void );
+void map_section( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions );
 
-#endif /* _PREKERNEL_MMU_H */
+#endif /* _MMU_H */
