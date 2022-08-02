@@ -49,6 +49,7 @@ void handle_irq( void ) {
 	}*/
 }
 
+
 void handle_sync( void ) {
 	size_t exceptionReg, address;
 	asm volatile ( "mrs %0, esr_el1" \
@@ -57,10 +58,79 @@ void handle_sync( void ) {
 					: "=r" (address) );
 
 	kprintf( "Kernel SYNC INT: 0x%lx @ 0x%lx\n", exceptionReg, address-4 );
+
+    ESR esr;
+    esr.reg = exceptionReg;
+    switch( esr.EC ) {
+        case( 0b100001 ):
+        {
+            kprintf( "\t" );
+            int_instr_abort( esr.ISS );
+            kprintf( "\n" );
+        } break;
+        case( 0b100101 ):
+        {
+            kprintf( "\t" );
+            int_data_abort( esr.ISS );
+            kprintf( "\n" );
+        } break;
+        default:
+            break;
+    }    
+
 	size_t EC = (exceptionReg & 0xFC000000) >> 26;
 	if( EC == 0b100101 ) {
 		kprintf( "HALTING PROCESS\n" );
 		for(;;);
 	}
     for( ;; );
+}
+
+static char* faultStatus[] = {
+    "address size fault, level 0",
+    "address size fault, level 1",
+    "address size fault, level 2",
+    "address size fault, level 3",
+    "translation fault, level 0",
+    "translation fault, level 1",
+    "translation fault, level 2",
+    "translation fault, level 3",
+    "access flag fault, level 1",
+    "access flag fault, level 2",
+    "access flag fault, level 3",
+    "access flag fault, level 0",
+    "permission fault, level 0",
+    "permission fault, level 1",
+    "permission fault, level 2",
+    "permission fault, level 3",
+    "synchronous external abort, not on translation table walk",
+    "synchronous external abort on translation table walk or hardware update of translation table, level -1",
+    "synchronous external abort on translation table walk or hardware update of translation table, level 0",
+    "synchronous external abort on translation table walk or hardware update of translation table, level 1",
+    "synchronous external abort on translation table walk or hardware update of translation table, level 2",
+    "synchronous external abort on translation table walk or hardware update of translation table, level 3",
+    "synchronous parity or ECC error on memory access, not on translation table walk",
+    "synchronous parity or ECC error on translation table walk or hardware update of translation table, level -1",
+    "synchronous parity or ECC error on translation table walk or hardware update of translation table, level 0",
+    "synchronous parity or ECC error on translation table walk or hardware update of translation table, level 1",
+    "synchronous parity or ECC error on translation table walk or hardware update of translation table, level 2",
+    "synchronous parity or ECC error on translation table walk or hardware update of translation table, level 3",
+    "address size fault, level -1",
+    "translation fault, level -1", 
+    "TLB conflict",
+    "unsupported atomic hardware update fault",
+};
+
+void int_instr_abort( uint64_t iss ) {
+    kprintf( "Instruction Fault Error" );
+    if( (iss&0x3F) <= 0b110001 ) {
+        kprintf(": %s", faultStatus[iss] );    
+    }
+}
+
+void int_data_abort( uint64_t iss ) {
+    kprintf( "Data Fault Error" );
+    if( (iss&0x3F) <= 0b110001 ) {
+        kprintf(": %s", faultStatus[iss] );
+    }
 }
