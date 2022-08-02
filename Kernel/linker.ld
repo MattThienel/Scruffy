@@ -37,11 +37,6 @@ SECTIONS {
         . = ALIGN(4K);
         __boot_stack_top = . - 8;
         __boot_stack_size = __boot_stack_top - __boot_stack_start;    
-
-        __boot_pg_tbl_start = .;
-        . += 8M;
-        . = ALIGN(4K);
-        __boot_pg_tbl_end = .;
     }
     . = ALIGN(4K);
     __boot_data_end = .;

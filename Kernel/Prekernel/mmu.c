@@ -29,7 +29,8 @@ extern uint64_t __start, __end;
 extern uint64_t __pg_tbl_start, __pg_tbl_end;
 
 void pk_mmu_init( void ) {
-    uint64_t *paging = (uint64_t*)&__boot_pg_tbl_start;
+    pk_printf("VA_START: 0x%lx\n", VA_START);
+    uint64_t *paging = (uint64_t*)(((uint64_t)&__pg_tbl_start) - VA_START);
     uint64_t reg;
 
     paging[0] = (uint64_t)(PT_BLOCK | PT_AF | PT_NX | PT_KERNEL | PT_OSH | PT_DEV | PT_RW );
@@ -65,8 +66,8 @@ void pk_mmu_init( void ) {
     asm volatile( "msr tcr_el1, %0; isb" : : "r" (reg) );
 
     // set-up translation table pointer for MMU
-    asm volatile( "msr ttbr0_el1, %0" : : "r" ((uint64_t)&__boot_pg_tbl_start + TTBR_CNP) );
-    asm volatile( "msr ttbr1_el1, %0" : : "r" ((uint64_t)&__boot_pg_tbl_start + TTBR_CNP + 1*PAGESIZE) );
+    asm volatile( "msr ttbr0_el1, %0" : : "r" ((uint64_t)((uint64_t)&__pg_tbl_start - VA_START) + TTBR_CNP) );
+    asm volatile( "msr ttbr1_el1, %0" : : "r" ((uint64_t)((uint64_t)&__pg_tbl_start - VA_START) + TTBR_CNP + 1*PAGESIZE) );
 
     // enable mmu
     asm volatile( "dsb ish; isb; mrs %0, sctlr_el1" : "=r" (reg) );
@@ -88,7 +89,7 @@ void pk_map_section( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t 
     uint64_t va = startVA, pa = startPA;
     int64_t remainingSize = size;
     uint64_t *l2Table, *l3Table;
-    volatile uint64_t *paging = ((uint64_t*)&__boot_pg_tbl_start)+512;
+    volatile uint64_t *paging = ((uint64_t*)((uint64_t)&__pg_tbl_start-VA_START))+512;
 
     while( remainingSize > 0 ) {
         // Check if section starts and fits 1GB block

@@ -46,8 +46,6 @@
 #define TCR_EPD0    0b0LL << 7
 #define TCR_T0SZ    (64LL-37LL) << 0
 
-extern volatile uint64_t __boot_pg_tbl_start;
-
 void pk_mmu_init( void );
 void pk_map_section( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions );
 
