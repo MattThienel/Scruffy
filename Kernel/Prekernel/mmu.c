@@ -15,36 +15,24 @@
 #define L2_TABLE_MASK           (0x1FFLL)
 #define L3_TABLE_MASK           (0x1FFLL)
 
-static uint64_t *nextFreeTable;
-
-extern uint64_t __text_start, __text_end;
-extern uint64_t __text_start_phys, __text_end_phys;
-extern uint64_t __rodata_start, __rodata_end;
-extern uint64_t __rodata_start_phys, __rodata_end_phys;
-extern uint64_t __data_start, __data_end;
-extern uint64_t __data_start_phys, __data_end_phys;
-extern uint64_t __bss_start, __bss_end;
-extern uint64_t __bss_start_phys, __bss_end_phys;
-extern uint64_t __start, __end;
-extern uint64_t __pg_tbl_start, __pg_tbl_end;
+extern uint64_t __boot_pg_tbl_start;
 
 void pk_mmu_init( void ) {
-    pk_printf("VA_START: 0x%lx\n", VA_START);
-    uint64_t *paging = (uint64_t*)(((uint64_t)&__pg_tbl_start) - VA_START);
+    uint64_t *paging = (uint64_t*)(((uint64_t)&__boot_pg_tbl_start));
     uint64_t reg;
 
     paging[0] = (uint64_t)(PT_BLOCK | PT_AF | PT_NX | PT_KERNEL | PT_OSH | PT_DEV | PT_RW );
     paging[1] = (uint64_t)( (1LL<<30) | PT_BLOCK | PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RW );
 
     paging[1*512+0] = (uint64_t)(PT_BLOCK | PT_AF | PT_NX | PT_KERNEL | PT_OSH | PT_DEV | PT_RW );
-    //paging[1*512+1] = (uint64_t)((1LL<<30) | PT_BLOCK | PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RW );
-    nextFreeTable = paging + (512*2);    
+    paging[1*512+1] = (uint64_t)((1LL<<30) | PT_BLOCK | PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RW );
+    //nextFreeTable = paging + (512*2);    
     
-    pk_map_section( (uint64_t)&__text_start_phys, (uint64_t)&__text_start, (uint64_t)&__text_end - (uint64_t)&__text_start, (uint64_t)(PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RO) );
+    /*pk_map_section( (uint64_t)&__text_start_phys, (uint64_t)&__text_start, (uint64_t)&__text_end - (uint64_t)&__text_start, (uint64_t)(PT_AF | PT_KERNEL | PT_ISH | PT_MEM | PT_RO) );
     pk_map_section( (uint64_t)&__rodata_start_phys, (uint64_t)&__rodata_start, (uint64_t)&__rodata_end - (uint64_t)&__rodata_start, (uint64_t)(PT_AF | PT_NX | PT_KERNEL | PT_ISH | PT_MEM | PT_RO ) );
     pk_map_section( (uint64_t)&__data_start_phys, (uint64_t)&__data_start, (uint64_t)&__data_end - (uint64_t)&__data_start, (uint64_t)(PT_AF | PT_NX | PT_KERNEL | PT_ISH | PT_MEM | PT_RW) );
     pk_map_section( (uint64_t)&__bss_start_phys, (uint64_t)&__bss_start, (uint64_t)&__bss_end - (uint64_t)&__bss_start, (uint64_t)(PT_AF | PT_NX | PT_KERNEL | PT_ISH | PT_MEM | PT_RW) );
-
+*/
     // check for 4k granule and at least 36 bits physical address bus
     asm volatile( "mrs %0, id_aa64mmfr0_el1" : "=r" (reg) );
     uint64_t paRange = reg & 0xF;
@@ -66,8 +54,8 @@ void pk_mmu_init( void ) {
     asm volatile( "msr tcr_el1, %0; isb" : : "r" (reg) );
 
     // set-up translation table pointer for MMU
-    asm volatile( "msr ttbr0_el1, %0" : : "r" ((uint64_t)((uint64_t)&__pg_tbl_start - VA_START) + TTBR_CNP) );
-    asm volatile( "msr ttbr1_el1, %0" : : "r" ((uint64_t)((uint64_t)&__pg_tbl_start - VA_START) + TTBR_CNP + 1*PAGESIZE) );
+    asm volatile( "msr ttbr0_el1, %0" : : "r" ((uint64_t)((uint64_t)&__boot_pg_tbl_start) + TTBR_CNP) );
+    asm volatile( "msr ttbr1_el1, %0" : : "r" ((uint64_t)((uint64_t)&__boot_pg_tbl_start) + TTBR_CNP + 1*PAGESIZE) );
 
     // enable mmu
     asm volatile( "dsb ish; isb; mrs %0, sctlr_el1" : "=r" (reg) );
@@ -84,7 +72,7 @@ void pk_mmu_init( void ) {
     asm volatile( "msr sctlr_el1, %0; isb" : : "r" (reg) );
 
 }
-
+/*
 void pk_map_section( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions ) {
     uint64_t va = startVA, pa = startPA;
     int64_t remainingSize = size;
@@ -134,3 +122,4 @@ void pk_map_section( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t 
         pa += KILOBYTES(4);
     }
 }
+*/
