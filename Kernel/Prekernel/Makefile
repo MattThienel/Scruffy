@@ -45,7 +45,7 @@ obj:
 build: | obj $(ASSEMBLY_OBJS) $(C_OBJS)
 
 clean:
-		rm -rf $(BUILD_DIR)
+		@rm -rf $(BUILD_DIR)
 
 #bin: | $(BUILD_DIR)/$(ELF)
 #		$(OBJ_COPY) -O binary $(BUILD_DIR)/$(ELF) $(BUILD_DIR)/$(BIN)

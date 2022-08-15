@@ -30,7 +30,7 @@ CFLAGS = $(INCLUDES) -ffreestanding -g -ggdb -Og -O0 -Wall -Wextra -Wno-unused-p
 
 LDFLAGS = -ffreestanding -nostdlib -lgcc
 
-all: clean bin
+all: | clean bin
 
 $(BUILD_DIR)/obj/kernel/%.o: ./%.S obj
 		$(CC) $(INCLUDES) -g -c $< -o $@
@@ -53,7 +53,7 @@ $(BUILD_DIR)/obj/kernel/%.o: Graphics/%.c obj
 $(BUILD_DIR)/obj/kernel/%.o: FileSystem/%.c obj
 		$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/$(ELF): | prekernel $(ASSEMBLY_OBJS) $(C_OBJS) build
+$(BUILD_DIR)/$(ELF): | build obj prekernel $(ASSEMBLY_OBJS) $(C_OBJS)
 		$(CC) -T $(LINKER_FILE) -o $@ build/obj/kernel/*.o build/obj/prekernel/*.o $(ARM_COMPILER_OPTIONS) $(LDFLAGS) 
 
 obj:
@@ -64,12 +64,12 @@ build:
 		@mkdir -p $(BUILD_DIR)
 
 clean:
-		rm -rf $(BUILD_DIR)
+		@rm -rf $(BUILD_DIR)
 
 prekernel: obj
-		$(MAKE) -C ./Prekernel/
-		mkdir build/obj/prekernel/
-		cp ./Prekernel/build/obj/*.o build/obj/prekernel/
+		@$(MAKE) -C ./Prekernel/
+		@mkdir build/obj/prekernel/
+		@cp ./Prekernel/build/obj/*.o build/obj/prekernel/
 
 bin: $(BUILD_DIR)/$(ELF)
 		$(OBJ_COPY) -O binary $(BUILD_DIR)/$(ELF) $(BUILD_DIR)/$(BIN)
