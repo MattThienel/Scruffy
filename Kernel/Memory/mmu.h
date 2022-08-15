@@ -76,6 +76,23 @@ typedef union {
     uint64_t value;
 } page_table_descriptor_t;
 
+typedef struct {
+    uint8_t* bitmap;
+    size_t size;
+    size_t indexOfFirstFreePage;
+    uint8_t* bitmap4k;
+    uint8_t* bitmap8k;
+    uint8_t* bitmap16k;
+    uint8_t* bitmap32k;
+    uint8_t* bitmap64k;
+    uint8_t* bitmap128k;
+} pmm_bitmap_t;
+
+enum physical_memory_manager_status_n {
+    PMM_OK,
+    PMM_MEM_NOT_AVAILABLE,
+};
+
 extern uint64_t __text_start, __text_end;
 extern uint64_t __text_start_phys, __text_end_phys;
 extern uint64_t __rodata_start, __rodata_end;
@@ -87,7 +104,9 @@ extern uint64_t __bss_start_phys, __bss_end_phys;
 extern uint64_t __start, __end;
 extern uint64_t __pg_tbl_start, __pg_tbl_end;
 
-void mmu_init( void );
-void map_section( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions );
+
+void mmu_init( size_t memSize );
+size_t alloc_physical( size_t numOfPages, size_t *physicalAddr );
+void map_pg_tbl( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions );
 
 #endif /* _MMU_H */
