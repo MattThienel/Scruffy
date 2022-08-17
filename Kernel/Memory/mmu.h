@@ -76,21 +76,22 @@ typedef union {
     uint64_t value;
 } page_table_descriptor_t;
 
+/*
+Buddy System: 0 = not split, 1 = split for all bitmaps except smallest 4k bitmap, where 0 = free, 1 = used
+*/
 typedef struct {
     uint8_t* bitmap;
     size_t size;
     size_t indexOfFirstFreePage;
-    uint8_t* bitmap4k;
-    uint8_t* bitmap8k;
-    uint8_t* bitmap16k;
-    uint8_t* bitmap32k;
-    uint8_t* bitmap64k;
-    uint8_t* bitmap128k;
+    uint8_t* buddies[10]; // First buddy is 4k pages, incrementing to 2M
+    uint32_t buddySizes[10];
+    uint8_t* allocated2M;  // Denotes if a 2M is allocated or not
 } pmm_bitmap_t;
 
 enum physical_memory_manager_status_n {
     PMM_OK,
     PMM_MEM_NOT_AVAILABLE,
+    PMM_REQUESTED_MEM_LARGER_THAN_LARGEST_BUDDY,
 };
 
 extern uint64_t __text_start, __text_end;
@@ -106,7 +107,10 @@ extern uint64_t __pg_tbl_start, __pg_tbl_end;
 
 
 void mmu_init( size_t memSize );
-size_t alloc_physical( size_t numOfPages, size_t *physicalAddr );
+//size_t alloc_physical( size_t numOfPages, size_t *physicalAddr );
 void map_pg_tbl( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions );
+
+size_t alloc_physical( size_t size, size_t *physicalAddr );
+size_t free_physical( size_t physicalAddr );
 
 #endif /* _MMU_H */
