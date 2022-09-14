@@ -26,7 +26,7 @@ C_OBJS = $(addprefix $(BUILD_DIR)/obj/kernel/,$(notdir $(C_FILES:.c=.o)))
 
 INCLUDES = -I./
 
-CFLAGS = $(INCLUDES) -ffreestanding -g -ggdb -Og -O0 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -mgeneral-regs-only -Wno-array-bounds
+CFLAGS = $(INCLUDES) -ffreestanding -g -ggdb -Og -O0 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -mgeneral-regs-only -Wno-array-bounds -Wno-unused-label -Wno-unused-but-set-variable
 
 LDFLAGS = -ffreestanding -nostdlib -lgcc
 
