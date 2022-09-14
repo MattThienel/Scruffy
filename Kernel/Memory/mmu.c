@@ -36,79 +36,158 @@ void mmu_init( size_t memSize ) {
     /*
     NOTE(matt): Memory Bit Map maps 4K pages as individual bits, (ie. 1 byte = 8 (4k) pages)
     */
-    physicalMemBitMap.bitmap = (uint8_t*)((uint64_t)&__end);
-    physicalMemBitMap.indexOfFirstFreePage = 0;
+    size_t size = 0;
 
-    physicalMemBitMap.buddySizes[0] = memSize/(4096*(8<<0));
-    physicalMemBitMap.buddySizes[1] = memSize/(4096*(8<<1));
-    physicalMemBitMap.buddySizes[2] = memSize/(4096*(8<<2));
-    physicalMemBitMap.buddySizes[3] = memSize/(4096*(8<<3));
-    physicalMemBitMap.buddySizes[4] = memSize/(4096*(8<<4));
-    physicalMemBitMap.buddySizes[5] = memSize/(4096*(8<<5));
-    physicalMemBitMap.buddySizes[6] = memSize/(4096*(8<<6));
-    physicalMemBitMap.buddySizes[7] = memSize/(4096*(8<<7));
-    physicalMemBitMap.buddySizes[8] = memSize/(4096*(8<<8));
-    physicalMemBitMap.buddySizes[9] = memSize/(4096*(8<<9));
-    physicalMemBitMap.size = physicalMemBitMap.buddySizes[0] + physicalMemBitMap.buddySizes[1] + physicalMemBitMap.buddySizes[2] + physicalMemBitMap.buddySizes[3] + physicalMemBitMap.buddySizes[4] + physicalMemBitMap.buddySizes[5] + physicalMemBitMap.buddySizes[6] + physicalMemBitMap.buddySizes[7] + physicalMemBitMap.buddySizes[8] + (physicalMemBitMap.buddySizes[9]*2);
+    // Fill and total sizes for each buffer
+    /*for( uint32_t i = 0; i < 10; ++i ) {
+        physicalMemBitMap.buddySizes[i] = memSize/(4096*(8<<i));
+        size += physicalMemBitMap.buddySizes[i];
+    }
+    size += physicalMemBitMap.buddySizes[9]; // Add size for allocated2M array
 
+    // Set memory addresses for arrays
     physicalMemBitMap.buddies[0] = (uint8_t*)((uint64_t)&__end);
-    physicalMemBitMap.buddies[1] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[0] + physicalMemBitMap.buddySizes[0]);
+    for( uint32_t i = 1; i < 10; ++i ) {
+        physicalMemBitMap.buddies[i] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[i-1] + physicalMemBitMap.buddySizes[i-1]);
+    }
+    physicalMemBitMap.allocated2M = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[9] + physicalMemBitMap.buddySizes[9]);
 
-    physicalMemBitMap.buddies[2] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[1] + physicalMemBitMap.buddySizes[1]);
-    physicalMemBitMap.buddies[3] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[2] + physicalMemBitMap.buddySizes[2]);
-    physicalMemBitMap.buddies[4] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[3] + physicalMemBitMap.buddySizes[3]);
-    physicalMemBitMap.buddies[5] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[4] + physicalMemBitMap.buddySizes[4]);
-    physicalMemBitMap.buddies[6] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[5] + physicalMemBitMap.buddySizes[5]);
-    physicalMemBitMap.buddies[7] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[6] + physicalMemBitMap.buddySizes[6]);
-    physicalMemBitMap.buddies[8] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[7] + physicalMemBitMap.buddySizes[7]);
-    physicalMemBitMap.buddies[9] = (uint8_t*)((uint64_t)physicalMemBitMap.buddies[8] + physicalMemBitMap.buddySizes[8]);
-    physicalMemBitMap.allocated2M= (uint8_t*)((uint64_t)physicalMemBitMap.buddies[9] + physicalMemBitMap.buddySizes[9]);
+    // Initialize free buddy arrays
+    physicalMemBitMap.numFreeSplitBuddies = 64;
+    physicalMemBitMap.freeSplitBuddies[0] = (free_buddy_t*)((uint64_t)physicalMemBitMap.allocated2M + physicalMemBitMap.buddySizes[9]);
+    size += physicalMemBitMap.numFreeSplitBuddies;
+    for( uint32_t i = 1; i < 10; ++i ) {
+        physicalMemBitMap.freeSplitBuddies[i] = (free_buddy_t*)((uint64_t)physicalMemBitMap.freeSplitBuddies[i-1] + physicalMemBitMap.numFreeSplitBuddies);
+        size += physicalMemBitMap.numFreeSplitBuddies;
+    }*/
 
+    physicalMemBitMap.bitmapSize[0] = (memSize/KILOBYTES(32*4));
+    physicalMemBitMap.bitmapSize[1] = (memSize/MEGABYTES(32*1));
+    physicalMemBitMap.bitmap[0] = (uint32_t*)((uint64_t)&__end);
+    physicalMemBitMap.bitmap[1] = (uint32_t*)((uint64_t)physicalMemBitMap.bitmap[0] + physicalMemBitMap.bitmapSize[0]*4);
+    size += physicalMemBitMap.bitmapSize[0]*4;    
+    size += physicalMemBitMap.bitmapSize[1]*4;    
 
-    map_pg_tbl( (uint64_t)physicalMemBitMap.bitmap-VA_START, (uint64_t)physicalMemBitMap.bitmap, physicalMemBitMap.size, (uint64_t)(PT_AF | PT_NX | PT_KERNEL | PT_ISH | PT_MEM | PT_RW) );
-    memset( physicalMemBitMap.bitmap, 0, physicalMemBitMap.size ); 
+    // Map physical memory manager to virtual memory
+    map_pg_tbl( (uint64_t)physicalMemBitMap.bitmap[0]-VA_START, (uint64_t)physicalMemBitMap.bitmap[0], size, (uint64_t)(PT_AF | PT_NX | PT_KERNEL | PT_ISH | PT_MEM | PT_RW) );
+    memset( physicalMemBitMap.bitmap[0], 0, size ); 
+    kprintf( "PMM Size: 0x%lx\n", size );
 
     // Mark kernel and io addresses as used for the memory bit map
-    size_t returnAddr;
-    if( alloc_physical( ((uint64_t)&__end - VA_START + physicalMemBitMap.size), &returnAddr ) != PMM_OK ) {
+    page_block_t kernelIO = alloc_physical( ((uint64_t)&__end - VA_START + size) ); 
+    if( kernelIO.size == 0 ) {
         kprintf( "PMM ERROR: Could not allocate memory for io and kernel in physical memory bitmap\n" );
     }
-    if( returnAddr != 0 ) {
+    if( kernelIO.address != 0 ) {
         kprintf( "PMM ERROR: IO and Kernel not allocated at beginning of memory\n" );
     }
-    kprintf( "Kernel Memory: 0x%lx\n", returnAddr );
+    kprintf( "Kernel Memory: 0x%lx\n", kernelIO.address );
 
-    uint64_t addr;
-    if( alloc_physical( MEGABYTES(4), &addr ) != PMM_OK ) {
+    page_block_t randomMem[10];
+
+    randomMem[0] = alloc_physical( KILOBYTES(8) ); 
+    randomMem[1] = alloc_physical( KILOBYTES(4) );
+    randomMem[2] = alloc_physical( MEGABYTES(1) );
+
+    for( uint32_t i = 0; i < 3; ++i ) {
+        if( randomMem[i].size == 0 ) {
+            kprintf( "PMM ERROR: Could not allocate memory\n" );
+        }
+        kprintf( "Memory after kernel: 0x%lx\n", randomMem[i].address );
+    }
+
+    free_physical( randomMem[0] ); 
+    free_physical( randomMem[1] );
+    randomMem[3] = alloc_physical( MEGABYTES(1) );
+    
+    if( randomMem[3].size == 0 ) {
         kprintf( "PMM ERROR: Could not allocate memory\n" );
     }
-    kprintf( "Memory after kernel: 0x%lx\n", addr );
-
-    addr = 0;
-    if( alloc_physical( MEGABYTES(3), &addr ) != PMM_OK ) {
-        kprintf( "PMM ERROR: Could not allocate memory\n" );
-    }
-    kprintf( "Memory after kernel: 0x%lx\n", addr );
+    kprintf( "Memory after kernel: 0x%lx\n", randomMem[3].address );
 
 }
 
-/*
-    return: error code & the physical address of the start of memory
-*/
-// TODO(matt): Implement buddy allocator
-/*size_t alloc_physical( size_t numOfPages, size_t *physicalAddr ) {
-    //physicalMemBitMap;
-    size_t numOfAvailablePages = 0;
-    size_t index = 0, startBit = 0;
+/*bool32_t find_free_buddy( uint32_t buddyIndex ) {
+    return 0;
+}*/
 
-    uint32_t *bitmap = (uint32_t *)physicalMemBitMap.bitmap;
-    size_t size = physicalMemBitMap.size/4;    
-    size_t i;
+void mark_pages_as_allocated( uint32_t **bitmap, uint32_t index, uint32_t bitIndex, uint32_t numOfPages ) {
+    /*uint32_t stopIndex = bitIndex + numOfPages;
+    if( stopIndex > 32 ) stopIndex = 32;
+    if( bitIndex != 0 ) {
+        uint64_t bits = (1 << (stopIndex));
+        bits -= 1;
+        bits &= ~(1 << bitIndex);
+        bits += 1; 
+        (*bitmap)[index] |= bits;
+        index++;
+    }
+    for( ; index < (numOfPages)/32; ++index  ) {
+        (*bitmap)[index] = 0xFFFFFFFF;
+    }
+    stopIndex = (numOfPages-(bitIndex))%32;
+    uint64_t bits = (1 << stopIndex);
+    bits -= 1;
+    (*bitmap)[index] |= bits;*/
+
+    uint32_t stopIndex = bitIndex + numOfPages;
+    uint32_t bits = 0;
+    uint32_t pagesSet = 0;
+    if( bitIndex != 0 ) {
+        if( stopIndex >= 32 ) {
+            bits = 0xFFFFFFFF;
+        } else {
+            bits = 1 << stopIndex;
+            bits -= 1;
+        }
+        bits &= ~(1 << bitIndex);
+        bits += 1;
+        (*bitmap)[index] |= bits;
+        if( stopIndex == 32 ) return;
+        pagesSet = 32-bitIndex; 
+        if( pagesSet >= numOfPages ) return;
+        index++;
+    }
+
+    uint32_t i;
+    for( i = 0; i < (numOfPages-pagesSet)/32; ++i ) {
+        (*bitmap)[index+i] = 0xFFFFFFFF;
+    }
+    index = index+i;
+    //pagesSet += 32*((numOfPages-pagesSet)/32);
+    pagesSet += (32*i);
+    
+    stopIndex = (numOfPages-pagesSet)%32;
+    bits = (1 << stopIndex);
+    bits -= 1;
+    (*bitmap)[index] |= bits;
+ 
+}
+
+// IMPORTANT(matt): Only allocate memory in 2MB sizes
+// TODO(matt): Allow smaller memory allocation sizes
+page_block_t alloc_physical( size_t size ) {
+    // Find concurrent memory fitting requested memory size
+    page_block_t memory = {0};
+    uint32_t bitmapSelect = 0;
+    uint32_t numOfPages;
+    if( size >= MEGABYTES(1) ) { 
+        bitmapSelect = 1;
+        numOfPages = ((size + MEGABYTES(1)-1)&(~(MEGABYTES(1)-1)))/MEGABYTES(1);
+        memory.size = numOfPages * MEGABYTES(1);
+    } else {
+        numOfPages = ((size + KILOBYTES(4)-1)&(~(KILOBYTES(4)-1)))/KILOBYTES(4);
+        memory.size = numOfPages * KILOBYTES(4);
+    } 
+
+    size_t i, index;
     ssize_t bitIndex = -1;
     uint32_t pages = 0, enoughMemoryAvailable = 0;
+    size_t numOfAvailablePages = 0;
+    uint32_t *bitmap = physicalMemBitMap.bitmap[bitmapSelect];
 
     // Find available memory
-    for( i = physicalMemBitMap.indexOfFirstFreePage/4; i < size; ++i ) {
+    for( i = 0; i < physicalMemBitMap.bitmapSize[bitmapSelect]; ++i ) {
         pages = num_trailing_zeros( bitmap[i] );
         if( pages >= numOfPages ) {
             enoughMemoryAvailable = 1;
@@ -122,11 +201,15 @@ void mmu_init( size_t memSize ) {
             index = i;
             bitIndex = 32-pages;
             numOfAvailablePages += pages;
-            for( ; i < size; ++i ) {
+            for( ; i < physicalMemBitMap.bitmapSize[bitmapSelect]; ++i ) {
                 pages = num_leading_zeros( bitmap[i] );
                 numOfAvailablePages += pages;
                 if( numOfAvailablePages >= numOfPages ) {
                     enoughMemoryAvailable = 1;
+                    break;
+                }
+                if( pages != 32 ) {
+                    numOfAvailablePages = 0;
                     break;
                 }
             }
@@ -137,264 +220,127 @@ void mmu_init( size_t memSize ) {
             break;
         }
     }
-
-    // Handle if no memory is available
     if( !enoughMemoryAvailable ) {
-        return PMM_MEM_NOT_AVAILABLE;
-    }   
+        kprintf( "PMM ERROR: not enough memory available for allocation\n" );
+        memory.size = 0;
+        memory.address = (void*)0;
+        return memory;
+    }
 
-    // Convert index to memory address
-    *physicalAddr = (bitIndex*4096) + (index*4096*32);
- 
-    // Mark memory as allocated
-    uint32_t stopIndex = (bitIndex + numOfPages);
+    mark_pages_as_allocated( &bitmap, index, bitIndex, numOfPages ); 
+    size_t physicalAddr = (index*32 + bitIndex);
+    if( size >= MEGABYTES(1) ) {
+        physicalAddr *= MEGABYTES(1);
+        bitmap = physicalMemBitMap.bitmap[0];
+        index = physicalAddr/KILOBYTES(32*4); 
+        bitIndex = 0; 
+        numOfPages *= 256;
+    } else {
+        physicalAddr *= KILOBYTES(4);
+        bitmap = physicalMemBitMap.bitmap[1];
+        index /= 256;
+        bitIndex = (physicalAddr >> 20) & 0x1F;
+        numOfPages = 1;
+    }
+    memory.address = (void*)(physicalAddr);
+    mark_pages_as_allocated( &bitmap, index, bitIndex, numOfPages ); 
+
+    return memory;
+}
+
+void mark_pages_as_free( uint32_t **bitmap, uint32_t index, uint32_t bitIndex, uint32_t numOfPages ) {
+/*    uint32_t stopIndex = bitIndex + numOfPages;
     if( stopIndex > 32 ) stopIndex = 32;
     if( bitIndex != 0 ) {
         uint64_t bits = (1 << (stopIndex));
         bits -= 1;
         bits &= ~(1 << bitIndex);
         bits += 1; 
-        bitmap[index] |= bits;
+        (*bitmap)[index] &= ~bits;
         index++;
     }
     for( ; index < (numOfPages)/32; ++index  ) {
-        bitmap[index] = 0xFFFFFFFF;
+        (*bitmap)[index] = 0x0;
     }
-    stopIndex = (numOfPages-(stopIndex-bitIndex))%32;
+    stopIndex = (numOfPages-(bitIndex))%32;
     uint64_t bits = (1 << stopIndex);
     bits -= 1;
-    bitmap[index] |= bits;
-    
-    return PMM_OK;
-}*/
+    (*bitmap)[index] &= ~bits;*/
 
-size_t alloc_physical( size_t size, size_t *physicalAddr ) {
-    /*uint32_t buddyIndex = 0;
-    uint32_t bitIndexScaleFactor = 0;
-    uint32_t numOf4kPagesToAllocate = size/4096;
-    // Round memory size up 
-    // TODO(matt): Look into optimizing out if statements
-    if( size > MEGABYTES(2) ) {
-         return PMM_REQUESTED_MEM_LARGER_THAN_LARGEST_BUDDY;
-    } else if( size > MEGABYTES(1) ) {          // Handle 2M buddy
-        buddyIndex = 9;
-        bitIndexScaleFactor = 512;
-    } else if( size > KILOBYTES(512) ) { // Handle 1M buddy
-        buddyIndex = 8;
-        bitIndexScaleFactor = 256;
-    } else if( size > KILOBYTES(256) ) { // Handle 512K buddy
-        buddyIndex = 7;
-        bitIndexScaleFactor = 128;
-    } else if( size > KILOBYTES(128) ) { // Handle 256K buddy 
-        buddyIndex = 6;
-        bitIndexScaleFactor = 64;
-    } else if( size > KILOBYTES(64) ) {  // Handle 128K buddy
-        buddyIndex = 5;
-        bitIndexScaleFactor = 32;
-    } else if( size > KILOBYTES(32) ) {  // Handle 64K buddy
-        buddyIndex = 4;
-        bitIndexScaleFactor = 16;
-    } else if( size > KILOBYTES(16) ) {  // Handle 32K buddy
-        buddyIndex = 3;
-        bitIndexScaleFactor = 8;
-    } else if( size > KILOBYTES(8) ) {   // Handle 16K buddy
-        buddyIndex = 2;
-        bitIndexScaleFactor = 4;
-    } else if( size > KILOBYTES(4) ) {   // Handle 8K buddy
-        buddyIndex = 1;
-        bitIndexScaleFactor = 2;
-    } else {                            // Handle 4K buddy
-        buddyIndex = 0;
-        bitIndexScaleFactor = 1;
-    }
-    uint32_t *bitmap = (uint32_t*)physicalMemBitMap.buddies[buddyIndex];
-    uint32_t bitmapSize = physicalMemBitMap.buddySizes[buddyIndex]/4;
-
-    // Find available page
-    // TODO(matt): Use binary search of split buddies instead of linear search
-    uint32_t index;
-    uint32_t bitIndex = 0;
-    for( index = 0; index < bitmapSize; ++index ) {
-        if( bitmap[index] != 0xFFFFFFFF ) {
-            bitIndex = num_trailing_zeros( ~bitmap[index] );
-            break; 
-        }
-    }
-    if( index >= bitmapSize ) {
-        return PMM_MEM_NOT_AVAILABLE;
-    }
-    *physicalAddr = (index*32 + bitIndex) * (bitIndexScaleFactor * 4096);
-    
-    // Set container buddies as split
-    for( uint32_t i = buddyIndex+1; i < 10; ++i ) {
-        uint32_t *buddy = (uint32_t*)physicalMemBitMap.buddies[i];
-        index /= 2;
-        bitIndex /= 2;
-        buddy[index] |= (1 << bitIndex);
-    } 
-    */
-
-    // Find concurrent memory fitting requested memory size
-    if( size > MEGABYTES(2) ) {
-        // Handle more complex case of large memory allocation
-        uint32_t *bitmap2M = (uint32_t *)physicalMemBitMap.buddies[9];
-        uint32_t *allocated2M = (uint32_t *)physicalMemBitMap.allocated2M;
-        size_t size2M = physicalMemBitMap.buddySizes[9]/4;
-        size_t i, index;
-        ssize_t bitIndex = -1;
-        uint32_t pages = 0, enoughMemoryAvailable = 0, numOfPages = ((size+MEGABYTES(2)-1)&(~(MEGABYTES(2)-1)))/MEGABYTES(2);
-        size_t numOfAvailablePages = 0;
-
-        // Find available memory
-        for( i = 0; i < size2M; ++i ) {
-            pages = num_trailing_zeros( allocated2M[i] );
-            if( pages >= numOfPages ) {
-                enoughMemoryAvailable = 1;
-                index = i;
-                bitIndex = 0;
-                break;
-            }
-            
-            pages = num_leading_zeros( allocated2M[i] );
-            if( pages > 0 ) {
-                index = i;
-                bitIndex = 32-pages;
-                numOfAvailablePages += pages;
-                for( ; i < size2M; ++i ) {
-                    pages = num_leading_zeros( allocated2M[i] );
-                    numOfAvailablePages += pages;
-                    if( numOfAvailablePages >= numOfPages ) {
-                        enoughMemoryAvailable = 1;
-                        break;
-                    }
-                    if( pages != 32 ) {
-                        numOfAvailablePages = 0;
-                        break;
-                    }
-                }
-            }
-
-            if( numOfAvailablePages >= numOfPages ) {
-                enoughMemoryAvailable = 1;
-                break;
-            }
-        }
-        if( !enoughMemoryAvailable ) {
-            kprintf( "PMM ERROR: not enough memory available for allocation\n" );
-            return PMM_MEM_NOT_AVAILABLE;
-        }
-        *physicalAddr = (index*32 + bitIndex) * MEGABYTES(2);
-
-        // Mark 2MB bitmap as allocated
-        uint32_t *bitmap = (uint32_t *)physicalMemBitMap.allocated2M;
-        uint32_t stopIndex = bitIndex + numOfPages;
-        if( stopIndex > 32 ) stopIndex = 32;
-        if( bitIndex != 0 ) {
-            uint64_t bits = (1 << (stopIndex));
+    uint32_t stopIndex = bitIndex + numOfPages;
+    uint32_t bits = 0;
+    uint32_t pagesSet = 0;
+    if( bitIndex != 0 ) {
+        if( stopIndex >= 32 ) {
+            bits = 0xFFFFFFFF;
+        } else {
+            bits = 1 << stopIndex;
             bits -= 1;
-            bits &= ~(1 << bitIndex);
-            bits += 1; 
-            bitmap[index] |= bits;
-            index++;
         }
-        for( ; index < (numOfPages)/32; ++index  ) {
-            bitmap[index] = 0xFFFFFFFF;
-        }
-        stopIndex = (numOfPages-(stopIndex-bitIndex))%32;
-        uint64_t bits = (1 << stopIndex);
-        bits -= 1;
-        bitmap[index] |= bits;
-
-        // Mark 4KB bitmap as allocated
-        bitmap = (uint32_t *)physicalMemBitMap.buddies[0];
-        index = *physicalAddr/(4096*8);
-        bitIndex = *physicalAddr & 31;
-        stopIndex = (bitIndex + (size/4096));
-        if( stopIndex > 32 ) stopIndex = 32;
-        if( bitIndex != 0 ) {
-            uint64_t bits = (1 << (stopIndex));
-            bits -= 1;
-            bits &= ~(1 << bitIndex);
-            bits += 1; 
-            bitmap[index] |= bits;
-            index++;
-        }
-        for( ; index < (size/4096)/32; ++index  ) {
-            bitmap[index] = 0xFFFFFFFF;
-        }
-        stopIndex = ((size/4096)-(stopIndex-bitIndex))%32;
-        bits = (1 << stopIndex);
-        bits -= 1;
-        bitmap[index] |= bits;
-    
-    } else { 
-        uint32_t buddyIndex = 0;
-        uint32_t bitIndexScaleFactor = 0;
-        if( size > MEGABYTES(1) ) {   // Handle 2M buddy
-            buddyIndex = 9;
-            bitIndexScaleFactor = 512;
-        } else if( size > KILOBYTES(512) ) { // Handle 1M buddy
-            buddyIndex = 8;
-            bitIndexScaleFactor = 256;
-        } else if( size > KILOBYTES(256) ) { // Handle 512K buddy
-            buddyIndex = 7;
-            bitIndexScaleFactor = 128;
-        } else if( size > KILOBYTES(128) ) { // Handle 256K buddy 
-            buddyIndex = 6;
-            bitIndexScaleFactor = 64;
-        } else if( size > KILOBYTES(64) ) {  // Handle 128K buddy
-            buddyIndex = 5;
-            bitIndexScaleFactor = 32;
-        } else if( size > KILOBYTES(32) ) {  // Handle 64K buddy
-            buddyIndex = 4;
-            bitIndexScaleFactor = 16;
-        } else if( size > KILOBYTES(16) ) {  // Handle 32K buddy
-            buddyIndex = 3;
-            bitIndexScaleFactor = 8;
-        } else if( size > KILOBYTES(8) ) {   // Handle 16K buddy
-            buddyIndex = 2;
-            bitIndexScaleFactor = 4;
-        } else if( size > KILOBYTES(4) ) {   // Handle 8K buddy
-            buddyIndex = 1;
-            bitIndexScaleFactor = 2;
-        } else {                            // Handle 4K buddy
-            buddyIndex = 0;
-            bitIndexScaleFactor = 1;
-        }
-
-        
-        // Mark pages as allocated
-        /*uint32_t *bitmap = (uint32_t *)physicalMemBitMap.buddies[0];
-        index = *physicalAddr/(4096*32);
-        bitIndex = (*physicalAddr/4096) & 31;
-        uint32_t stopIndex = (bitIndex + numOf4kPagesToAllocate);
-        if( stopIndex > 32 ) stopIndex = 32;
-        if( bitIndex != 0 ) {
-            uint64_t bits = (1 << (stopIndex));
-            bits -= 1;
-            bits &= ~(1 << bitIndex);
-            bits += 1; 
-            bitmap[index] |= bits;
-            index++;
-        }
-        for( ; index < (numOf4kPagesToAllocate)/32; ++index  ) {
-            bitmap[index] = 0xFFFFFFFF;
-        }
-        stopIndex = (numOf4kPagesToAllocate-(stopIndex-bitIndex))%32;
-        uint64_t bits = (1 << stopIndex);
-        bits -= 1;
-        bitmap[index] |= bits;*/
-    
+        bits &= ~(1 << bitIndex);
+        bits += 1;
+        (*bitmap)[index] &= ~bits;
+        if( stopIndex == 32 ) return;
+        pagesSet = 32-bitIndex; 
+        if( pagesSet >= numOfPages ) return;
+        index++;
     }
 
-    return PMM_OK;
+    uint32_t i;
+    for( i = 0; i < (numOfPages-pagesSet)/32; ++i ) {
+        (*bitmap)[index+i] = 0x0;
+    }
+    index = index+i;
+    //pagesSet += 32*((numOfPages-pagesSet)/32);
+    pagesSet += (32*i);
+    
+    stopIndex = (numOfPages-pagesSet)%32;
+    bits = (1 << stopIndex);
+    bits -= 1;
+    (*bitmap)[index] &= ~bits;
 }
 
-size_t free_physical( size_t physicalAddr ) {
-    // Look at address alignment for hint at how big the allocated memory might be. Then check if memory is split
+void free_physical( page_block_t page ) {
+    if( page.size >= MEGABYTES(1) ) {
+        // Clear 1MB bitmap
+        uint32_t index = (size_t)page.address/MEGABYTES(32*1);
+        uint32_t bitIndex = ((size_t)page.address/MEGABYTES(1)) & 0x1F;
+        mark_pages_as_free( &(physicalMemBitMap.bitmap[1]), index, bitIndex, page.size/MEGABYTES(1) ); 
 
-   // Mark pages as unallocated and merge any split buddies 
-    return PMM_OK;
+        // Clear 4KB bitmap
+        index = (size_t)page.address/KILOBYTES(32*4);
+        bitIndex = ((size_t)page.address/KILOBYTES(4)) & 0x1F;
+        mark_pages_as_free( &(physicalMemBitMap.bitmap[0]), index, bitIndex, page.size/KILOBYTES(4) ); 
+    } else {
+        // Clear 4KB bitmap
+        uint32_t index = (size_t)page.address/KILOBYTES(32*4);
+        uint32_t bitIndex = ((size_t)page.address/KILOBYTES(4)) & 0x1F;
+        mark_pages_as_free( &(physicalMemBitMap.bitmap[0]), index, bitIndex, page.size/KILOBYTES(4) ); 
+        
+        // Clear 1MB if all other 4KB pages are free 
+        index = (size_t)page.address/MEGABYTES(32*1);
+        bitIndex = ((size_t)page.address/MEGABYTES(1)) & 0x1F;
+        uint32_t megabyteFree = 1;
+    
+        for( uint32_t i = 0; i < 256/32; ++i ) {
+            if( physicalMemBitMap.bitmap[0][(((index*32)+bitIndex)*(256/32))+i] != 0x0) {
+                megabyteFree = 0;
+                break;
+            }
+        }
+
+        if( megabyteFree ) 
+            mark_pages_as_free( &(physicalMemBitMap.bitmap[1]), index, bitIndex, 1 ); 
+    }
+    
+}
+
+size_t kalloc( size_t size ) {
+    return 0;
+}
+
+void kfree( size_t size ) {
+
 }
 
 void map_pg_tbl( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions ) {
@@ -448,3 +394,196 @@ void map_pg_tbl( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t perm
     }
 
 }
+
+// Buddy Allocator Attempt
+/*
+    #if 0
+    if( size > MEGABYTES(1) ) {
+    #else
+    if( 1 ) {
+    #endif
+        // Handle more complex case of large memory allocation
+        uint32_t *bitmap2M = (uint32_t *)physicalMemBitMap.buddies[9];
+        uint32_t *allocated2M = (uint32_t *)physicalMemBitMap.allocated2M;
+        size_t size2M = physicalMemBitMap.buddySizes[9]/4;
+        size_t i, index;
+        ssize_t bitIndex = -1;
+        uint32_t pages = 0, enoughMemoryAvailable = 0, numOfPages = ((size+MEGABYTES(2)-1)&(~(MEGABYTES(2)-1)))/MEGABYTES(2);
+        size_t numOfAvailablePages = 0;
+        page_block_t memory = {0};
+
+        // Find available memory
+        for( i = 0; i < size2M; ++i ) {
+            pages = num_trailing_zeros( allocated2M[i] );
+            if( pages >= numOfPages ) {
+                enoughMemoryAvailable = 1;
+                index = i;
+                bitIndex = 0;
+                break;
+            }
+            
+            pages = num_leading_zeros( allocated2M[i] );
+            if( pages > 0 ) {
+                index = i;
+                bitIndex = 32-pages;
+                numOfAvailablePages += pages;
+                for( ; i < size2M; ++i ) {
+                    pages = num_leading_zeros( allocated2M[i] );
+                    numOfAvailablePages += pages;
+                    if( numOfAvailablePages >= numOfPages ) {
+                        enoughMemoryAvailable = 1;
+                        break;
+                    }
+                    if( pages != 32 ) {
+                        numOfAvailablePages = 0;
+                        break;
+                    }
+                }
+            }
+
+            if( numOfAvailablePages >= numOfPages ) {
+                enoughMemoryAvailable = 1;
+                break;
+            }
+        }
+        if( !enoughMemoryAvailable ) {
+            kprintf( "PMM ERROR: not enough memory available for allocation\n" );
+            return memory;
+            //return PMM_MEM_NOT_AVAILABLE;
+        }
+
+        size_t physicalAddr = (index*32 + bitIndex) * MEGABYTES(2);
+        memory.address = (void*)(physicalAddr);
+
+        // Mark 2MB bitmap as allocated
+        uint32_t *bitmap = (uint32_t *)physicalMemBitMap.allocated2M;
+        uint32_t stopIndex = bitIndex + numOfPages;
+        if( stopIndex > 32 ) stopIndex = 32;
+        if( bitIndex != 0 ) {
+            uint64_t bits = (1 << (stopIndex));
+            bits -= 1;
+            bits &= ~(1 << bitIndex);
+            bits += 1; 
+            bitmap[index] |= bits;
+            index++;
+        }
+        for( ; index < (numOfPages)/32; ++index  ) {
+            bitmap[index] = 0xFFFFFFFF;
+        }
+        stopIndex = (numOfPages-(stopIndex-bitIndex))%32;
+        uint64_t bits = (1 << stopIndex);
+        bits -= 1;
+        bitmap[index] |= bits;
+
+        // Mark 4KB bitmap as allocated
+        bitmap = (uint32_t *)physicalMemBitMap.buddies[0];
+        index = physicalAddr/(4096*8);
+        bitIndex = physicalAddr & 31;
+        stopIndex = (bitIndex + (size/4096));
+        if( stopIndex > 32 ) stopIndex = 32;
+        if( bitIndex != 0 ) {
+            uint64_t bits = (1 << (stopIndex));
+            bits -= 1;
+            bits &= ~(1 << bitIndex);
+            bits += 1; 
+            bitmap[index] |= bits;
+            index++;
+        }
+        for( ; index < (size/4096)/32; ++index  ) {
+            bitmap[index] = 0xFFFFFFFF;
+        }
+        stopIndex = ((size/4096)-(stopIndex-bitIndex))%32;
+        bits = (1 << stopIndex);
+        bits -= 1;
+        bitmap[index] |= bits;
+        
+        memory.address = (void*) physicalAddr;
+        memory.size = numOfPages * MEGABYTES(2); 
+        return memory;
+    
+    } else { 
+        uint32_t bitIndex = 0, index = 0;
+        uint32_t buddyIndex = 0;
+        if( size > KILOBYTES(512) ) {        // Handle 1M buddy
+            buddyIndex = 8;
+        } else if( size > KILOBYTES(256) ) { // Handle 512K buddy
+            buddyIndex = 7;
+        } else if( size > KILOBYTES(128) ) { // Handle 256K buddy 
+            buddyIndex = 6;
+        } else if( size > KILOBYTES(64) ) {  // Handle 128K buddy
+            buddyIndex = 5;
+        } else if( size > KILOBYTES(32) ) {  // Handle 64K buddy
+            buddyIndex = 4;
+        } else if( size > KILOBYTES(16) ) {  // Handle 32K buddy
+            buddyIndex = 3;
+        } else if( size > KILOBYTES(8) ) {   // Handle 16K buddy
+            buddyIndex = 2;
+        } else if( size > KILOBYTES(4) ) {   // Handle 8K buddy
+            buddyIndex = 1;
+        } else {                             // Handle 4K buddy
+            buddyIndex = 0;
+        }
+
+        // Check if free split buddy exists
+        if( physicalMemBitMap.freeBuddiesLength[buddyIndex] > 0 ) {
+            bitIndex = ((free_buddy_t*)physicalMemBitMap.freeSplitBuddies[buddyIndex]+physicalMemBitMap.freeBuddiesStartIndex[buddyIndex])->bitIndex;
+            index = ((free_buddy_t*)physicalMemBitMap.freeSplitBuddies[buddyIndex]+physicalMemBitMap.freeBuddiesStartIndex[buddyIndex])->index;
+            physicalMemBitMap.freeBuddiesLength[buddyIndex] -= 1;
+            physicalMemBitMap.freeBuddiesStartIndex[buddyIndex] += 1;
+            if( physicalMemBitMap.freeBuddiesStartIndex[buddyIndex] >= physicalMemBitMap.numFreeSplitBuddies ) {
+                physicalMemBitMap.freeBuddiesStartIndex[buddyIndex] = 0;
+            }
+            goto memory_found;
+        }
+
+        // TODO(matt): Look into best fit memory search 
+        // Find free memory, binary tree style search
+        uint32_t *allocated2M = (uint32_t*)physicalMemBitMap.allocated2M;
+        uint32_t *buddies[10];
+        uint32_t buddySizes[10]; 
+
+        // Convert buddies into 32-bit array for searching bits
+        for( uint32_t i = 0; i < 10; ++i ) {
+            buddies[i] = (uint32_t*)(physicalMemBitMap.buddies[i]);
+            buddySizes[i] = physicalMemBitMap.buddySizes[i]/4;
+        }
+
+        // Find available memory to split for buddy
+        for( uint32_t i = 0; i < buddySizes[9]; ++i ) {
+            if( allocated2M[i] == 0xFFFFFFFF && buddies[9] == 0x0 ) {
+                continue;
+            }
+            uint32_t val = allocated2M[i];
+            for( uint8_t j = num_trailing_zeros(~allocated2M[i]); j < 31; ++j ) {
+                
+            } 
+
+        } 
+memory_not_found:
+        page_block_t memNotFound = {0};
+        return memNotFound;
+
+memory_found:
+        page_block_t memory = {0};
+  */      
+        // Mark pages as allocated
+        /*uint32_t *bitmap = (uint32_t *)physicalMemBitMap.buddies[0];
+        index = *physicalAddr/(4096*32);
+        bitIndex = (*physicalAddr/4096) & 31;
+        uint32_t stopIndex = (bitIndex + numOf4kPagesToAllocate);
+        if( stopIndex > 32 ) stopIndex = 32;
+        if( bitIndex != 0 ) {
+            uint64_t bits = (1 << (stopIndex));
+            bits -= 1;
+            bits &= ~(1 << bitIndex);
+            bits += 1; 
+            bitmap[index] |= bits;
+            index++;
+        }
+        for( ; index < (numOf4kPagesToAllocate)/32; ++index  ) {
+            bitmap[index] = 0xFFFFFFFF;
+        }
+        stopIndex = (numOf4kPagesToAllocate-(stopIndex-bitIndex))%32;
+        uint64_t bits = (1 << stopIndex);
+        bits -= 1;
+        bitmap[index] |= bits;*/

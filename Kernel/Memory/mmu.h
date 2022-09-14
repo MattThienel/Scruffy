@@ -76,23 +76,58 @@ typedef union {
     uint64_t value;
 } page_table_descriptor_t;
 
+typedef union {
+    uint64_t reg;
+    struct {
+        uint64_t index : 52;
+        uint64_t bitIndex : 5;
+        uint64_t extra : 7;
+    };
+} free_buddy_t;
+static_assert( sizeof(free_buddy_t) == sizeof(uint64_t) );
+
+typedef struct free_buddy_node {
+    struct free_buddy_node *next, *prev;
+    free_buddy_t freeBuddy;
+} free_buddy_node_t;
+
+typedef struct free_buddy_pool {
+    struct free_buddy_pool *nextPool; 
+    size_t numFreeBuddies;
+    free_buddy_t *freeBuddies;
+} free_buddy_pool_t;
+
 /*
 Buddy System: 0 = not split, 1 = split for all bitmaps except smallest 4k bitmap, where 0 = free, 1 = used
 */
 typedef struct {
-    uint8_t* bitmap;
-    size_t size;
-    size_t indexOfFirstFreePage;
-    uint8_t* buddies[10]; // First buddy is 4k pages, incrementing to 2M
-    uint32_t buddySizes[10];
-    uint8_t* allocated2M;  // Denotes if a 2M is allocated or not
+    //uint8_t* buddies[10]; // First buddy is 4k pages, incrementing to 2M, denotes split or not
+    //uint32_t buddySizes[10];
+    //uint8_t* allocated2M;  // Denotes if a 2M is allocated or not
+    //free_buddy_t* freeSplitBuddies[9]; // Free buddy is a circular list
+    //uint32_t freeBuddiesStartIndex[9]; // Index for start of circular list
+    //uint32_t freeBuddiesLength[9];     // Length of circular list
+    //uint32_t numFreeSplitBuddies;      // Number of items in circular buffer
+    uint32_t *bitmap[2];    // 0: 4K pages, 1: 1M pages
+    uint32_t bitmapSize[2];
 } pmm_bitmap_t;
+
+typedef struct {
+    uint32_t *allocated1G;
+    uint32_t *allocated2M;
+    uint32_t *allocated4K;
+} vmm_bitmap_t;
 
 enum physical_memory_manager_status_n {
     PMM_OK,
     PMM_MEM_NOT_AVAILABLE,
     PMM_REQUESTED_MEM_LARGER_THAN_LARGEST_BUDDY,
 };
+
+typedef struct {
+    void *address;
+    size_t size;
+} page_block_t;
 
 extern uint64_t __text_start, __text_end;
 extern uint64_t __text_start_phys, __text_end_phys;
@@ -110,7 +145,9 @@ void mmu_init( size_t memSize );
 //size_t alloc_physical( size_t numOfPages, size_t *physicalAddr );
 void map_pg_tbl( uint64_t startPA, uint64_t startVA, int64_t size, uint64_t permissions );
 
-size_t alloc_physical( size_t size, size_t *physicalAddr );
-size_t free_physical( size_t physicalAddr );
+page_block_t alloc_physical( size_t size );
+void free_physical( page_block_t page );
+size_t kalloc( size_t size );
+void kfree( size_t size );
 
 #endif /* _MMU_H */
