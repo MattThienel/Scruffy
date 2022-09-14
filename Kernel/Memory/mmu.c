@@ -87,9 +87,14 @@ void mmu_init( size_t memSize ) {
 
     randomMem[0] = alloc_physical( KILOBYTES(8) ); 
     randomMem[1] = alloc_physical( KILOBYTES(4) );
-    randomMem[2] = alloc_physical( MEGABYTES(1) );
+    randomMem[2] = alloc_physical( KILOBYTES(4) );
+    randomMem[3] = alloc_physical( KILOBYTES(8) );
+    randomMem[4] = alloc_physical( KILOBYTES(4) );
+    randomMem[5] = alloc_physical( KILOBYTES(16) );
+    randomMem[6] = alloc_physical( KILOBYTES(8) );
+    randomMem[7] = alloc_physical( KILOBYTES(8) );
 
-    for( uint32_t i = 0; i < 3; ++i ) {
+    for( uint32_t i = 0; i < 8; ++i ) {
         if( randomMem[i].size == 0 ) {
             kprintf( "PMM ERROR: Could not allocate memory\n" );
         }
@@ -98,7 +103,8 @@ void mmu_init( size_t memSize ) {
 
     free_physical( randomMem[0] ); 
     free_physical( randomMem[1] );
-    randomMem[3] = alloc_physical( MEGABYTES(1) );
+    free_physical( randomMem[5] );
+    randomMem[3] = alloc_physical( KILOBYTES(16) );
     
     if( randomMem[3].size == 0 ) {
         kprintf( "PMM ERROR: Could not allocate memory\n" );
@@ -112,24 +118,6 @@ void mmu_init( size_t memSize ) {
 }*/
 
 void mark_pages_as_allocated( uint32_t **bitmap, uint32_t index, uint32_t bitIndex, uint32_t numOfPages ) {
-    /*uint32_t stopIndex = bitIndex + numOfPages;
-    if( stopIndex > 32 ) stopIndex = 32;
-    if( bitIndex != 0 ) {
-        uint64_t bits = (1 << (stopIndex));
-        bits -= 1;
-        bits &= ~(1 << bitIndex);
-        bits += 1; 
-        (*bitmap)[index] |= bits;
-        index++;
-    }
-    for( ; index < (numOfPages)/32; ++index  ) {
-        (*bitmap)[index] = 0xFFFFFFFF;
-    }
-    stopIndex = (numOfPages-(bitIndex))%32;
-    uint64_t bits = (1 << stopIndex);
-    bits -= 1;
-    (*bitmap)[index] |= bits;*/
-
     uint32_t stopIndex = bitIndex + numOfPages;
     uint32_t bits = 0;
     uint32_t pagesSet = 0;
@@ -164,7 +152,7 @@ void mark_pages_as_allocated( uint32_t **bitmap, uint32_t index, uint32_t bitInd
  
 }
 
-// IMPORTANT(matt): Only allocate memory in 2MB sizes
+// IMPORTANT(matt): Only allocate memory in 1MB and 4KB sizes 
 // TODO(matt): Allow smaller memory allocation sizes
 page_block_t alloc_physical( size_t size ) {
     // Find concurrent memory fitting requested memory size
@@ -187,15 +175,40 @@ page_block_t alloc_physical( size_t size ) {
     uint32_t *bitmap = physicalMemBitMap.bitmap[bitmapSelect];
 
     // Find available memory
+    // TODO(matt): Detect zero bits sandwiched between two set bits
     for( i = 0; i < physicalMemBitMap.bitmapSize[bitmapSelect]; ++i ) {
         pages = num_trailing_zeros( bitmap[i] );
         if( pages >= numOfPages ) {
             enoughMemoryAvailable = 1;
             index = i;
             bitIndex = 0;
-            break;
+            goto memory_found;
         }
         
+        if( pages < 32 ) { 
+            while(1) {
+                uint32_t numShiftedBits = pages+1;
+                uint32_t bits = bitmap[i];
+                bits = (bits >> 1) | (1 << 31);
+                bits = (uint32_t)((int32_t)bits >> pages);
+                uint32_t tempBits = bits + 1;
+                uint32_t numUsedPages = num_trailing_zeros( tempBits );
+                bits = (uint32_t)((int32_t)bits >> numUsedPages);      
+                numShiftedBits += numUsedPages;
+                pages = num_trailing_zeros( bits );
+                if( pages >= numOfPages ) {
+                    enoughMemoryAvailable = 1;
+                    index = i;
+                    bitIndex = numShiftedBits;
+                    goto memory_found;
+                }
+                if( numShiftedBits >= 32 ) {
+                    break;
+                }
+            }
+        }
+
+
         pages = num_leading_zeros( bitmap[i] );
         if( pages > 0 ) {
             index = i;
@@ -206,7 +219,7 @@ page_block_t alloc_physical( size_t size ) {
                 numOfAvailablePages += pages;
                 if( numOfAvailablePages >= numOfPages ) {
                     enoughMemoryAvailable = 1;
-                    break;
+                    goto memory_found;
                 }
                 if( pages != 32 ) {
                     numOfAvailablePages = 0;
@@ -220,6 +233,7 @@ page_block_t alloc_physical( size_t size ) {
             break;
         }
     }
+memory_found:
     if( !enoughMemoryAvailable ) {
         kprintf( "PMM ERROR: not enough memory available for allocation\n" );
         memory.size = 0;
