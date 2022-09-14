@@ -42,3 +42,7 @@ uint32_t num_trailing_zeros( uint32_t num ) {
     uint32_t nlz = num_leading_zeros( ~num & (num-1) );
     return 32-nlz;
 }
+
+bool_t extract_bit( uint32_t value, uint8_t bitIndex ) {
+    return (value >> bitIndex) & 0x1;
+}

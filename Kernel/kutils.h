@@ -13,6 +13,8 @@ uint64_t big_to_little_endian64( uint64_t value );
 uint32_t num_leading_zeros( uint32_t num );
 uint32_t num_trailing_zeros( uint32_t num );
 
+bool_t extract_bit( uint32_t value, uint8_t bitIndex );
+
 #define READ_INTERNAL_REG( var, reg ) \
 	asm volatile( "mrs %0," reg \
 					: "=r" (var) );
