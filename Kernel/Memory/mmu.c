@@ -113,10 +113,6 @@ void mmu_init( size_t memSize ) {
 
 }
 
-/*bool32_t find_free_buddy( uint32_t buddyIndex ) {
-    return 0;
-}*/
-
 void mark_pages_as_allocated( uint32_t **bitmap, uint32_t index, uint32_t bitIndex, uint32_t numOfPages ) {
     uint32_t stopIndex = bitIndex + numOfPages;
     uint32_t bits = 0;
@@ -263,24 +259,6 @@ memory_found:
 }
 
 void mark_pages_as_free( uint32_t **bitmap, uint32_t index, uint32_t bitIndex, uint32_t numOfPages ) {
-/*    uint32_t stopIndex = bitIndex + numOfPages;
-    if( stopIndex > 32 ) stopIndex = 32;
-    if( bitIndex != 0 ) {
-        uint64_t bits = (1 << (stopIndex));
-        bits -= 1;
-        bits &= ~(1 << bitIndex);
-        bits += 1; 
-        (*bitmap)[index] &= ~bits;
-        index++;
-    }
-    for( ; index < (numOfPages)/32; ++index  ) {
-        (*bitmap)[index] = 0x0;
-    }
-    stopIndex = (numOfPages-(bitIndex))%32;
-    uint64_t bits = (1 << stopIndex);
-    bits -= 1;
-    (*bitmap)[index] &= ~bits;*/
-
     uint32_t stopIndex = bitIndex + numOfPages;
     uint32_t bits = 0;
     uint32_t pagesSet = 0;
